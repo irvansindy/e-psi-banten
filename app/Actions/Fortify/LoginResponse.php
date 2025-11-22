@@ -8,7 +8,6 @@ class LoginResponse implements LoginResponseContract
 {
     public function toResponse($request)
     {
-        dd($request->all());
         // Redirect setelah login (single login)
         return redirect()->intended('/dashboard');
     }

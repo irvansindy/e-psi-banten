@@ -1,12 +1,24 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
+
+// Route Login (Guest only)
 Route::get('/', function () {
     return view('welcome');
-});
-Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware(['guest'])->name('login');
+})->middleware('guest')->name('login');
 
-Route::get('/dashboard', function() {
-    return view('admin.dashboard');
+// Route Dashboard (Authenticated users only)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', function() {
+        return view('admin.dashboard');
+    })->name('dashboard');
+    Route::get('');
 });
+
+// Logout route (optional, jika belum ada)
+Route::post('/logout', function() {
+    auth()->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect('/');
+})->middleware('auth')->name('logout');

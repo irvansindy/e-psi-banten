@@ -18,34 +18,61 @@
                         <div class="row justify-content-center">
                             <div class="col-lg-5">
                                 <div class="card shadow-lg border-0 rounded-lg mt-5">
-                                    <div class="card-header"><h3 class="text-center font-weight-light my-4">Login</h3></div>
+                                    <div class="card-header">
+                                        <h3 class="text-center font-weight-light my-4">Login</h3>
+                                    </div>
                                     <div class="card-body">
-                                        {{-- @php
-                                            dd(auth()->user());
-                                        @endphp --}}
+                                        @if (session('status'))
+                                            <div class="alert alert-success">{{ session('status') }}</div>
+                                        @endif
+
                                         <form action="{{ route('login') }}" method="POST">
                                             @csrf
                                             <div class="form-floating mb-3">
-                                                <input class="form-control" name="email" id="email" type="email" placeholder="name@example.com" />
+                                                <input
+                                                    class="form-control @error('email') is-invalid @enderror"
+                                                    name="email"
+                                                    id="email"
+                                                    type="email"
+                                                    placeholder="name@example.com"
+                                                    value="{{ old('email') }}"
+                                                    required
+                                                />
                                                 <label for="email">Email address</label>
                                                 @error('email')
-                                                    <span class="text-danger">{{ $message }}</span>
+                                                    <div class="invalid-feedback">{{ $message }}</div>
                                                 @enderror
                                             </div>
+
                                             <div class="form-floating mb-3">
-                                                <input class="form-control" id="password" type="password" placeholder="Password" />
+                                                <input
+                                                    class="form-control @error('password') is-invalid @enderror"
+                                                    name="password"
+                                                    id="password"
+                                                    type="password"
+                                                    placeholder="Password"
+                                                    required
+                                                />
                                                 <label for="password">Password</label>
                                                 @error('password')
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                    
+                                                    <div class="invalid-feedback">{{ $message }}</div>
                                                 @enderror
                                             </div>
+
                                             <div class="form-check mb-3">
-                                                <input class="form-check-input" id="inputRememberPassword" type="checkbox" value="" />
-                                                <label class="form-check-label" for="inputRememberPassword">Remember Password</label>
+                                                <input
+                                                    class="form-check-input"
+                                                    name="remember"
+                                                    id="inputRememberPassword"
+                                                    type="checkbox"
+                                                    value="1"
+                                                />
+                                                <label class="form-check-label" for="inputRememberPassword">
+                                                    Remember Me
+                                                </label>
                                             </div>
+
                                             <div class="d-flex align-items-center justify-content-center mt-4 mb-0">
-                                                {{-- <a class="small" href="password.html">Forgot Password?</a> --}}
                                                 <button type="submit" class="btn btn-primary">Login</button>
                                             </div>
                                         </form>
