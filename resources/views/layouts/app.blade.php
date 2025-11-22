@@ -27,5 +27,7 @@
     <script src="{{ asset('assets/js/cdn/simple-datatable.js') }}" crossorigin="anonymous"></script>
     <script src="{{ asset('assets/js/datatables-simple-demo.js') }}"></script>
     <script src="{{ asset('assets/js/cdn/jquery.min.js') }}"></script>
+    <script src="{{ asset('assets/js/cdn/moment.js') }}"></script>
+    @stack('scripts')
 </body>
 </html>
