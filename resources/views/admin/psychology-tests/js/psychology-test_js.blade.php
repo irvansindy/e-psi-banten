@@ -2,10 +2,15 @@
     let currentPage = 1;
     let searchTimeout = null;
     let modal = null;
+    let simsData = [];
+    let groupSimsData = [];
 
     $(document).ready(function() {
         // Initialize modal
         modal = new bootstrap.Modal($('#formModal'));
+
+        // Load dropdown data first
+        loadDropdownData();
 
         // Load data on page load
         loadData();
@@ -43,6 +48,41 @@
         });
     });
 
+    // Load dropdown data
+    function loadDropdownData() {
+        $.ajax({
+            url: '{{ route('psychology-tests.dropdown-data') }}',
+            type: 'GET',
+            success: function(result) {
+                if (result.meta.status === 'success') {
+                    simsData = result.data.sims;
+                    groupSimsData = result.data.group_sims;
+                    populateDropdowns();
+                }
+            },
+            error: function(xhr) {
+                console.error('Error loading dropdown data:', xhr);
+            }
+        });
+    }
+
+    // Populate dropdowns
+    function populateDropdowns() {
+        // Populate SIM dropdown
+        let simOptions = '<option value="">Pilih Jenis SIM</option>';
+        $.each(simsData, function(index, sim) {
+            simOptions += `<option value="${sim.id}">${sim.name}</option>`;
+        });
+        $('#sim_id').html(simOptions);
+
+        // Populate Group SIM dropdown
+        let groupSimOptions = '<option value="">Pilih Golongan SIM</option>';
+        $.each(groupSimsData, function(index, groupSim) {
+            groupSimOptions += `<option value="${groupSim.id}">${groupSim.name}</option>`;
+        });
+        $('#group_sim_id').html(groupSimOptions);
+    }
+
     // Load data
     function loadData(page = 1, search = '') {
         currentPage = page;
@@ -57,9 +97,8 @@
             </tr>
         `);
 
-        // fetch-psychology-tests
         $.ajax({
-            url: '{{ route('fetch-psychology-tests') }}',
+            url: '{{ route('psychology-tests.data') }}',
             type: 'GET',
             data: {
                 page: page,
@@ -95,7 +134,9 @@
         $.each(data.data, function(index, item) {
             const no = (data.current_page - 1) * data.per_page + index + 1;
             const gender = item.gender === 'male' ? 'Laki-laki' : 'Perempuan';
-            const birthInfo = `${item.place_of_birth || '-'}, ${moment(item.date_of_birth).format('LL') || '-'}`;
+            const birthInfo = `${item.place_of_birth || '-'}, ${item.date_of_birth || '-'}`;
+            const simName = item.sim ? item.sim.name : '-';
+            const groupSimName = item.group_sim ? item.group_sim.name : '-';
 
             html += `
                 <tr>
@@ -104,8 +145,8 @@
                     <td>${gender}</td>
                     <td>${birthInfo}</td>
                     <td>${item.age || '-'}</td>
-                    <td>${item.sim_id || '-'}</td>
-                    <td>${item.group_sim_id || '-'}</td>
+                    <td>${simName}</td>
+                    <td>${groupSimName}</td>
                     <td>${item.domicile || '-'}</td>
                     <td>
                         <button class="btn btn-sm btn-info" onclick="viewData(${item.id})">
@@ -166,6 +207,7 @@
         $('#dataForm')[0].reset();
         $('#dataId').val('');
         clearValidation();
+        populateDropdowns(); // Populate dropdown saat create
         modal.show();
     }
 
@@ -177,6 +219,7 @@
             success: function(result) {
                 if (result.meta.status === 'success') {
                     $('#formModalLabel').text('Detail Data Tes Psikologi');
+                    populateDropdowns(); // Populate dropdown dulu
                     fillForm(result.data);
                     disableForm(true);
                     modal.show();
@@ -196,6 +239,7 @@
             success: function(result) {
                 if (result.meta.status === 'success') {
                     $('#formModalLabel').text('Edit Data Tes Psikologi');
+                    populateDropdowns(); // Populate dropdown dulu
                     fillForm(result.data);
                     disableForm(false);
                     modal.show();

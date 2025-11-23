@@ -14,7 +14,8 @@ Route::middleware(['auth'])->group(function () {
         return view('admin.dashboard');
     })->name('dashboard');
     Route::get('psychology-tests', [PsychologyTestController::class, 'index'])->name('psychology-tests.index');
-    Route::get('fetch-psychology-tests', [PsychologyTestController::class, 'getData'])->name('fetch-psychology-tests');
+    Route::get('psychology-tests/dropdown-data', [PsychologyTestController::class, 'getDropdownData'])->name('psychology-tests.dropdown-data');
+    Route::get('psychology-tests/data', [PsychologyTestController::class, 'getData'])->name('psychology-tests.data');
     Route::post('psychology-tests', [PsychologyTestController::class, 'store'])->name('psychology-tests.store');
     Route::get('psychology-tests/{id}', [PsychologyTestController::class, 'show'])->name('psychology-tests.show');
     Route::put('psychology-tests/{id}', [PsychologyTestController::class, 'update'])->name('psychology-tests.update');

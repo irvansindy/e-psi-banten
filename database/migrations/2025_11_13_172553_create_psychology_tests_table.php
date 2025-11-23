@@ -20,7 +20,7 @@ return new class extends Migration
             $table->tinyInteger('age')->nullable();
             $table->unsignedInteger('sim_id')->nullable();
             $table->unsignedInteger('group_sim_id')->nullable();
-            $table->unsignedInteger('domicile')->nullable();
+            $table->string('domicile')->nullable();
             $table->timestamps();
         });
     }

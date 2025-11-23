@@ -22,6 +22,16 @@ class PsychologyTest extends Model
         'age' => 'integer',
         'sim_id' => 'integer',
         'group_sim_id' => 'integer',
-        'domicile' => 'integer',
+        'domicile' => 'string',
     ];
+
+    public function sim()
+    {
+        return $this->belongsTo(Sim::class, 'sim_id');
+    }
+
+    public function groupSim()
+    {
+        return $this->belongsTo(GroupSim::class, 'group_sim_id');
+    }
 }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\PsychologyTest;
+use App\Models\Sim;
+use App\Models\GroupSim;
 use App\Helpers\FormatResponseJson;
 use Illuminate\Support\Facades\Validator;
 
@@ -18,12 +20,29 @@ class PsychologyTestController extends Controller
     }
 
     /**
+     * Get dropdown data for SIM and Group SIM.
+     */
+    public function getDropdownData()
+    {
+        try {
+            $data = [
+                'sims' => Sim::orderBy('name')->get(),
+                'group_sims' => GroupSim::orderBy('name')->get(),
+            ];
+
+            return FormatResponseJson::success($data, 'Data dropdown berhasil diambil');
+        } catch (\Exception $e) {
+            return FormatResponseJson::error(null, $e->getMessage(), 500);
+        }
+    }
+
+    /**
      * Get all data via API.
      */
     public function getData(Request $request)
     {
         try {
-            $query = PsychologyTest::query();
+            $query = PsychologyTest::with(['sim', 'groupSim']);
 
             // Search functionality
             if ($request->has('search') && $request->search != '') {
@@ -56,7 +75,7 @@ class PsychologyTestController extends Controller
             'age' => 'nullable|integer|min:0|max:127',
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
-            'domicile' => 'nullable|integer',
+            'domicile' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -97,7 +116,7 @@ class PsychologyTestController extends Controller
             'age' => 'nullable|integer|min:0|max:127',
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
-            'domicile' => 'nullable|integer',
+            'domicile' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
