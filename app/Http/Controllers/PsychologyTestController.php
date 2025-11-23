@@ -84,7 +84,7 @@ class PsychologyTestController extends Controller
 
         try {
             $data = PsychologyTest::create($request->all());
-            return FormatResponseJson::success($data, 'Data berhasil ditambahkan', 201);
+            return FormatResponseJson::success($data, 'Data berhasil ditambahkan');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, $e->getMessage(), 500);
         }
