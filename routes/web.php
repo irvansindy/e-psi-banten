@@ -18,6 +18,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('psychology-tests/data', [PsychologyTestController::class, 'getData'])->name('psychology-tests.data');
     Route::post('psychology-tests', [PsychologyTestController::class, 'store'])->name('psychology-tests.store');
     Route::get('psychology-tests/{id}', [PsychologyTestController::class, 'show'])->name('psychology-tests.show');
+    Route::get('psychology-tests/{id}/pdf', [PsychologyTestController::class, 'generatePDF'])->name('psychology-tests.pdf');
     Route::put('psychology-tests/{id}', [PsychologyTestController::class, 'update'])->name('psychology-tests.update');
     Route::delete('psychology-tests/{id}', [PsychologyTestController::class, 'destroy'])->name('psychology-tests.destroy');
 });

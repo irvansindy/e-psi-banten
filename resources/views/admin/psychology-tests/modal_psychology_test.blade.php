@@ -1,4 +1,4 @@
-<!-- Modal Form (Reusable) -->
+<!-- resources/views/admin/psychology-tests/modal_psychology_test.blade.php -->
 <div class="modal fade" id="formModal" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -6,9 +6,25 @@
                 <h5 class="modal-title" id="formModalLabel">Form Data</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="dataForm">
+            <form id="dataForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" id="dataId" name="id">
+
+                    <!-- Photo Upload Section -->
+                    <div class="mb-3">
+                        <label for="photo" class="form-label">Foto <span class="text-danger" id="photoRequired">*</span></label>
+                        <input type="file" class="form-control" id="photo" name="photo" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <small class="text-muted">Format: JPEG, JPG, PNG, WebP (Max: 2MB). Akan dikonversi ke WebP.</small>
+                        <div class="invalid-feedback"></div>
+
+                        <!-- Photo Preview -->
+                        <div id="photoPreview" class="mt-2" style="display: none;">
+                            <img id="photoPreviewImg" src="" alt="Preview" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                            <button type="button" class="btn btn-sm btn-danger mt-2" id="removePhotoBtn">
+                                <i class="fas fa-times"></i> Hapus Foto
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">

@@ -8,6 +8,11 @@ use App\Models\Sim;
 use App\Models\GroupSim;
 use App\Helpers\FormatResponseJson;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+// Atau gunakan Imagick driver jika tersedia:
+// use Intervention\Image\Drivers\Imagick\Driver;
 
 class PsychologyTestController extends Controller
 {
@@ -76,6 +81,7 @@ class PsychologyTestController extends Controller
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
             'domicile' => 'nullable|string',
+            'photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -83,8 +89,15 @@ class PsychologyTestController extends Controller
         }
 
         try {
-            $data = PsychologyTest::create($request->all());
-            return FormatResponseJson::success($data, 'Data berhasil ditambahkan');
+            $data = $request->except('photo');
+
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
+                $data['photo'] = $this->handlePhotoUpload($request->file('photo'));
+            }
+
+            $psychologyTest = PsychologyTest::create($data);
+            return FormatResponseJson::success($psychologyTest->load(['sim', 'groupSim']), 'Data berhasil ditambahkan');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, $e->getMessage(), 500);
         }
@@ -96,7 +109,7 @@ class PsychologyTestController extends Controller
     public function show($id)
     {
         try {
-            $data = PsychologyTest::findOrFail($id);
+            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
             return FormatResponseJson::success($data, 'Data berhasil diambil');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan', 404);
@@ -117,6 +130,7 @@ class PsychologyTestController extends Controller
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
             'domicile' => 'nullable|string',
+            'photo' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -124,9 +138,21 @@ class PsychologyTestController extends Controller
         }
 
         try {
-            $data = PsychologyTest::findOrFail($id);
-            $data->update($request->all());
-            return FormatResponseJson::success($data, 'Data berhasil diupdate');
+            $psychologyTest = PsychologyTest::findOrFail($id);
+            $data = $request->except('photo');
+
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
+                // Hapus foto lama jika ada
+                if ($psychologyTest->photo && Storage::disk('public')->exists($psychologyTest->photo)) {
+                    Storage::disk('public')->delete($psychologyTest->photo);
+                }
+
+                $data['photo'] = $this->handlePhotoUpload($request->file('photo'));
+            }
+
+            $psychologyTest->update($data);
+            return FormatResponseJson::success($psychologyTest->load(['sim', 'groupSim']), 'Data berhasil diupdate');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan atau gagal diupdate', 500);
         }
@@ -140,9 +166,43 @@ class PsychologyTestController extends Controller
         try {
             $data = PsychologyTest::findOrFail($id);
             $data->delete();
+
             return FormatResponseJson::success(null, 'Data berhasil dihapus');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan atau gagal dihapus', 500);
+        }
+    }
+
+    /**
+     * Handle photo upload and convert to WebP
+     */
+    private function handlePhotoUpload($file)
+    {
+        try {
+            // Generate unique filename
+            $filename = 'psychology_test_' . time() . '_' . uniqid() . '.webp';
+            $path = 'psychology-tests/' . $filename;
+
+            // Create ImageManager with GD driver
+            $manager = new ImageManager(new Driver());
+
+            // Read and process image
+            $image = $manager->read($file);
+
+            // Resize jika terlalu besar (max width 1200px)
+            if ($image->width() > 1200) {
+                $image->scale(width: 1200);
+            }
+
+            // Convert to WebP dan encode
+            $encoded = $image->toWebp(quality: 90);
+
+            // Simpan ke storage
+            Storage::disk('public')->put($path, $encoded);
+
+            return $path;
+        } catch (\Exception $e) {
+            throw new \Exception('Gagal memproses foto: ' . $e->getMessage());
         }
     }
 }

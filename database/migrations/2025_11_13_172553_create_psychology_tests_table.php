@@ -21,6 +21,7 @@ return new class extends Migration
             $table->unsignedInteger('sim_id')->nullable();
             $table->unsignedInteger('group_sim_id')->nullable();
             $table->string('domicile')->nullable();
+            $table->string('photo')->nullable();
             $table->timestamps();
         });
     }

@@ -1,9 +1,12 @@
+<!-- resources/views/admin/psychology-tests/js/psychology-test_js.blade.php -->
 <script>
     let currentPage = 1;
     let searchTimeout = null;
     let modal = null;
     let simsData = [];
     let groupSimsData = [];
+    let isEditMode = false;
+    let currentPhotoUrl = null;
 
     $(document).ready(function() {
         // Initialize modal
@@ -40,11 +43,24 @@
             $('#dataForm')[0].reset();
             disableForm(false);
             clearValidation();
+            resetPhotoPreview();
+            isEditMode = false;
+            currentPhotoUrl = null;
         });
 
         // Calculate age when date of birth changes
         $('#date_of_birth').on('change', function() {
             calculateAge();
+        });
+
+        // Photo preview
+        $('#photo').on('change', function(e) {
+            previewPhoto(e.target.files[0]);
+        });
+
+        // Remove photo button
+        $('#removePhotoBtn').on('click', function() {
+            resetPhotoPreview();
         });
     });
 
@@ -207,7 +223,15 @@
         $('#dataForm')[0].reset();
         $('#dataId').val('');
         clearValidation();
-        populateDropdowns(); // Populate dropdown saat create
+        populateDropdowns();
+        resetPhotoPreview();
+        isEditMode = false;
+        currentPhotoUrl = null;
+
+        // Photo required untuk create
+        $('#photo').prop('required', true);
+        $('#photoRequired').show();
+
         modal.show();
     }
 
@@ -219,9 +243,15 @@
             success: function(result) {
                 if (result.meta.status === 'success') {
                     $('#formModalLabel').text('Detail Data Tes Psikologi');
-                    populateDropdowns(); // Populate dropdown dulu
+                    populateDropdowns();
                     fillForm(result.data);
                     disableForm(true);
+
+                    // Show existing photo if available
+                    if (result.data.photo_url) {
+                        showExistingPhoto(result.data.photo_url);
+                    }
+
                     modal.show();
                 }
             },
@@ -239,9 +269,21 @@
             success: function(result) {
                 if (result.meta.status === 'success') {
                     $('#formModalLabel').text('Edit Data Tes Psikologi');
-                    populateDropdowns(); // Populate dropdown dulu
+                    populateDropdowns();
                     fillForm(result.data);
                     disableForm(false);
+                    isEditMode = true;
+                    currentPhotoUrl = result.data.photo_url;
+
+                    // Photo optional untuk edit
+                    $('#photo').prop('required', false);
+                    $('#photoRequired').hide();
+
+                    // Show existing photo if available
+                    if (result.data.photo_url) {
+                        showExistingPhoto(result.data.photo_url);
+                    }
+
                     modal.show();
                 }
             },
@@ -275,6 +317,7 @@
 
         if (disabled) {
             $('#submitBtn').hide();
+            $('#removePhotoBtn').hide();
         } else {
             $('#submitBtn').show();
         }
@@ -314,27 +357,25 @@
         $spinner.removeClass('d-none');
         $submitBtn.prop('disabled', true);
 
-        const formData = $('#dataForm').serializeArray();
-        const data = {};
-
-        $.each(formData, function(i, field) {
-            if (field.name !== 'id' && field.value !== '') {
-                data[field.name] = field.value;
-            }
-        });
-
+        const formData = new FormData($('#dataForm')[0]);
         const id = $('#dataId').val();
+
+        // Tambahkan _method untuk PUT jika edit
+        if (id) {
+            formData.append('_method', 'PUT');
+        }
+
         const url = id ? `{{ url('psychology-tests') }}/${id}` : '{{ route('psychology-tests.store') }}';
-        const method = id ? 'PUT' : 'POST';
 
         $.ajax({
             url: url,
-            type: method,
-            contentType: 'application/json',
+            type: 'POST',
+            processData: false,
+            contentType: false,
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            data: JSON.stringify(data),
+            data: formData,
             success: function(result) {
                 $spinner.addClass('d-none');
                 $submitBtn.prop('disabled', false);
@@ -402,6 +443,28 @@
     }
 
     // Calculate age from date of birth
+    // function calculateAge() {
+    //     const dateOfBirth = $('#date_of_birth').val();
+
+    //     if (!dateOfBirth) {
+    //         $('#age').val('');
+    //         return;
+    //     }
+
+    //     const birthDate = new Date(dateOfBirth);
+    //     const today = new Date();
+
+    //     let age = today
+    //     const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    //     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    //         age--;
+    //     }
+
+    //     $('#age').val(age >= 0 ? age : '');
+    // }
+
+    // Calculate age from date of birth
     function calculateAge() {
         const dateOfBirth = $('#date_of_birth').val();
 
@@ -423,5 +486,47 @@
 
         // Set age value
         $('#age').val(age >= 0 ? age : '');
+    }
+
+    // Preview photo
+    function previewPhoto(file) {
+        if (file) {
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showAlert('danger', 'Format file tidak valid. Gunakan JPEG, JPG, PNG, atau WebP');
+                $('#photo').val('');
+                return;
+            }
+
+            // Validate file size (2MB)
+            if (file.size > 2048 * 1024) {
+                showAlert('danger', 'Ukuran file maksimal 2MB');
+                $('#photo').val('');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#photoPreviewImg').attr('src', e.target.result);
+                $('#photoPreview').show();
+                $('#removePhotoBtn').show();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Show existing photo
+    function showExistingPhoto(url) {
+        $('#photoPreviewImg').attr('src', url);
+        $('#photoPreview').show();
+    }
+
+    // Reset photo preview
+    function resetPhotoPreview() {
+        $('#photo').val('');
+        $('#photoPreviewImg').attr('src', '');
+        $('#photoPreview').hide();
+        $('#removePhotoBtn').hide();
     }
 </script>
