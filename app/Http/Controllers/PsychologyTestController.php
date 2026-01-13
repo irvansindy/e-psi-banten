@@ -8,12 +8,14 @@ use App\Models\Sim;
 use App\Models\GroupSim;
 use App\Helpers\FormatResponseJson;
 use Illuminate\Support\Facades\Validator;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
-// Atau gunakan Imagick driver jika tersedia:
-// use Intervention\Image\Drivers\Imagick\Driver;
-
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh;
+use Endroid\QrCode\Writer\PngWriter;
 class PsychologyTestController extends Controller
 {
     /**
@@ -74,6 +76,7 @@ class PsychologyTestController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
+            'nik' => 'required|string|size:16|regex:/^[0-9]+$/',
             'gender' => 'required|in:male,female',
             'place_of_birth' => 'nullable|string|max:255',
             'date_of_birth' => 'nullable|date',
@@ -81,7 +84,7 @@ class PsychologyTestController extends Controller
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
             'domicile' => 'nullable|string',
-            'photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
+            'photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048', // TAMBAH
         ]);
 
         if ($validator->fails()) {
@@ -89,15 +92,15 @@ class PsychologyTestController extends Controller
         }
 
         try {
-            $data = $request->except('photo');
+            $data = $request->except('photo'); // UBAH dari $request->all()
 
-            // Handle photo upload
+            // TAMBAH: Handle photo upload
             if ($request->hasFile('photo')) {
                 $data['photo'] = $this->handlePhotoUpload($request->file('photo'));
             }
 
             $psychologyTest = PsychologyTest::create($data);
-            return FormatResponseJson::success($psychologyTest->load(['sim', 'groupSim']), 'Data berhasil ditambahkan');
+            return FormatResponseJson::success($psychologyTest, 'Data berhasil ditambahkan');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, $e->getMessage(), 500);
         }
@@ -109,7 +112,7 @@ class PsychologyTestController extends Controller
     public function show($id)
     {
         try {
-            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
+            $data = PsychologyTest::findOrFail($id);
             return FormatResponseJson::success($data, 'Data berhasil diambil');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan', 404);
@@ -123,6 +126,7 @@ class PsychologyTestController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
+            'nik' => 'required|string|size:16|regex:/^[0-9]+$/',
             'gender' => 'required|in:male,female',
             'place_of_birth' => 'nullable|string|max:255',
             'date_of_birth' => 'nullable|date',
@@ -130,7 +134,7 @@ class PsychologyTestController extends Controller
             'sim_id' => 'nullable|integer',
             'group_sim_id' => 'nullable|integer',
             'domicile' => 'nullable|string',
-            'photo' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
+            'photo' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048', // TAMBAH
         ]);
 
         if ($validator->fails()) {
@@ -138,21 +142,19 @@ class PsychologyTestController extends Controller
         }
 
         try {
-            $psychologyTest = PsychologyTest::findOrFail($id);
-            $data = $request->except('photo');
+            $data = PsychologyTest::findOrFail($id);
+            $updateData = $request->except('photo'); // UBAH dari $request->all()
 
-            // Handle photo upload
+            // TAMBAH: Handle photo upload
             if ($request->hasFile('photo')) {
-                // Hapus foto lama jika ada
-                if ($psychologyTest->photo && Storage::disk('public')->exists($psychologyTest->photo)) {
-                    Storage::disk('public')->delete($psychologyTest->photo);
+                if ($data->photo && Storage::disk('public')->exists($data->photo)) {
+                    Storage::disk('public')->delete($data->photo);
                 }
-
-                $data['photo'] = $this->handlePhotoUpload($request->file('photo'));
+                $updateData['photo'] = $this->handlePhotoUpload($request->file('photo'));
             }
 
-            $psychologyTest->update($data);
-            return FormatResponseJson::success($psychologyTest->load(['sim', 'groupSim']), 'Data berhasil diupdate');
+            $data->update($updateData);
+            return FormatResponseJson::success($data, 'Data berhasil diupdate');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan atau gagal diupdate', 500);
         }
@@ -166,16 +168,125 @@ class PsychologyTestController extends Controller
         try {
             $data = PsychologyTest::findOrFail($id);
             $data->delete();
-
             return FormatResponseJson::success(null, 'Data berhasil dihapus');
         } catch (\Exception $e) {
             return FormatResponseJson::error(null, 'Data tidak ditemukan atau gagal dihapus', 500);
         }
     }
-
     /**
-     * Handle photo upload and convert to WebP
+     * Generate PDF Certificate
      */
+    public function generatePDFOld($id)
+    {
+        try {
+            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
+            // dd($data);
+
+            // Generate certificate number
+            $certificateNumber = date('Y') . str_pad($data->id, 10, '0', STR_PAD_LEFT);
+            // dd($data->id .''. $certificateNumber);
+            // Format tanggal lahir
+            $birthDate = $data->date_of_birth ? \Carbon\Carbon::parse($data->date_of_birth)->isoFormat('D MMMM YYYY') : '-';
+            $birthPlace = $data->place_of_birth ?: '-';
+
+            // Generate QR Code URL (bisa diganti dengan URL verifikasi real)
+            $qrCodeUrl = url('/verify/' . $certificateNumber);
+
+            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
+                'data' => $data,
+                'certificateNumber' => $certificateNumber,
+                'birthDate' => $birthDate,
+                'birthPlace' => $birthPlace,
+                'qrCodeUrl' => $qrCodeUrl,
+                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
+            ]);
+
+            $pdf->setPaper('A4', 'portrait');
+            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal generate PDF: ' . $e->getMessage());
+        }
+    }
+    public function generatePDFOld2($id)
+    {
+        try {
+            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
+
+            // Generate certificate number
+            $certificateNumber = date('Y') . str_pad($data->id, 10, '0', STR_PAD_LEFT);
+
+            // Format tanggal lahir
+            $birthDate = $data->date_of_birth ? \Carbon\Carbon::parse($data->date_of_birth)->isoFormat('D MMMM YYYY') : '-';
+            $birthPlace = $data->place_of_birth ?: '-';
+
+            // Generate QR Code URL (bisa diganti dengan URL verifikasi real)
+            $qrCodeUrl = url('/verify/' . $certificateNumber);
+            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
+                'data' => $data,
+                'certificateNumber' => $certificateNumber,
+                'birthDate' => $birthDate,
+                'birthPlace' => $birthPlace,
+                'qrCodeUrl' => $qrCodeUrl,
+                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
+            ]);
+
+            $pdf->setPaper('A4', 'portrait');
+
+            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
+        } catch (\Exception $e) {
+            // Return error sebagai response JSON atau text untuk debugging
+            return response()->json([
+                'error' => true,
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ], 500);
+        }
+    }
+    public function generatePDF($id)
+    {
+        try {
+            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
+
+            // Generate certificate number
+            $certificateNumber = date('Y') . str_pad($data->id, 10, '0', STR_PAD_LEFT);
+
+            // Format tanggal lahir
+            $birthDate = $data->date_of_birth ? \Carbon\Carbon::parse($data->date_of_birth)->isoFormat('D MMMM YYYY') : '-';
+            $birthPlace = $data->place_of_birth ?: '-';
+
+            // Generate QR Code URL
+            $qrCodeUrl = route('psychology-tests.pdf', $id);
+
+            // Generate QR Code menggunakan API external
+            $qrCodeApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' . urlencode($qrCodeUrl);
+
+            // Download QR Code dan convert ke base64
+            $qrCodeImage = file_get_contents($qrCodeApiUrl);
+            $qrCode = base64_encode($qrCodeImage);
+
+            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
+                'data' => $data,
+                'certificateNumber' => $certificateNumber,
+                'birthDate' => $birthDate,
+                'birthPlace' => $birthPlace,
+                'qrCodeUrl' => $qrCodeUrl,
+                'qrCode' => $qrCode,
+                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
+            ]);
+
+            $pdf->setPaper('A4', 'portrait');
+
+            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ], 500);
+        }
+    }
     private function handlePhotoUpload($file)
     {
         try {

@@ -283,7 +283,7 @@
                         <tr>
                             <td>NIK</td>
                             <td>:</td>
-                            <td>-</td>
+                            <td>{{ $data->nik ? $data->nik : '-' }}</td>
                         </tr>
                         <tr>
                             <td>Jenis kelamin</td>
@@ -361,4 +361,5 @@
         </div>
     </div>
 </body>
+<script src="{{ asset('assets/js/cdn/qrcode.js') }}"></script>
 </html>

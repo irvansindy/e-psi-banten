@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('psychology_tests', function (Blueprint $table) {
             $table->id();
             $table->string('name')->nullable();
+            $table->string('nik')->nullable();
             $table->enum('gender', ['male', 'female'])->nullable();
             $table->string('place_of_birth')->nullable();
             $table->date('date_of_birth')->nullable();

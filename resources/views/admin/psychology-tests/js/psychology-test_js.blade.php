@@ -62,6 +62,24 @@
         $('#removePhotoBtn').on('click', function() {
             resetPhotoPreview();
         });
+
+        // TAMBAH: Validasi input NIK hanya angka
+        $('#nik').on('input', function() {
+            // Hapus karakter selain angka
+            this.value = this.value.replace(/[^0-9]/g, '');
+
+            // Batasi maksimal 16 digit
+            if (this.value.length > 16) {
+                this.value = this.value.slice(0, 16);
+            }
+        });
+
+        // TAMBAH: Validasi paste di NIK
+        $('#nik').on('paste', function(e) {
+            setTimeout(() => {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 16);
+            }, 0);
+        });
     });
 
     // Load dropdown data
@@ -158,6 +176,7 @@
                 <tr>
                     <td>${no}</td>
                     <td>${item.name}</td>
+                    <td>${item.nik || '-'}</td>
                     <td>${gender}</td>
                     <td>${birthInfo}</td>
                     <td>${item.age || '-'}</td>
@@ -170,6 +189,9 @@
                         </button>
                         <button class="btn btn-sm btn-warning" onclick="editData(${item.id})">
                             <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="printPDF(${item.id})" title="Cetak PDF">
+                            <i class="fas fa-print"></i>
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="deleteData(${item.id})">
                             <i class="fas fa-trash"></i>
@@ -293,10 +315,16 @@
         });
     }
 
+    // Print PDF
+    function printPDF(id) {
+        window.open(`{{ url('psychology-tests') }}/${id}/pdf`);
+    }
+
     // Fill form
     function fillForm(data) {
         $('#dataId').val(data.id);
         $('#name').val(data.name);
+        $('#nik').val(data.nik || '')
         $('#gender').val(data.gender);
         $('#place_of_birth').val(data.place_of_birth || '');
         $('#date_of_birth').val(data.date_of_birth || '');

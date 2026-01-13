@@ -33,6 +33,7 @@
                                 <tr>
                                     <th width="5%">No</th>
                                     <th>Nama</th>
+                                    <th>NIK</th> <!-- TAMBAH INI -->
                                     <th>Gender</th>
                                     <th>Tempat/Tgl Lahir</th>
                                     <th>Umur</th>

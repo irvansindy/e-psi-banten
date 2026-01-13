@@ -9,6 +9,7 @@ class PsychologyTest extends Model
 {
     protected $fillable = [
         'name',
+        'nik',
         'gender',
         'place_of_birth',
         'date_of_birth',
@@ -20,6 +21,7 @@ class PsychologyTest extends Model
     ];
 
     protected $casts = [
+        'nik' => 'string',
         'date_of_birth' => 'date',
         'age' => 'integer',
         'sim_id' => 'integer',

@@ -33,12 +33,25 @@
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="col-md-6">
+                            <label for="nik" class="form-label">NIK <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nik" name="nik"
+                                maxlength="16" pattern="[0-9]{16}"
+                                placeholder="Masukkan 16 digit NIK" required>
+                            <small class="text-muted">16 digit angka</small>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-md-6">
                             <label for="gender" class="form-label">Gender <span class="text-danger">*</span></label>
                             <select class="form-select" id="gender" name="gender" required>
                                 <option value="">Pilih Gender</option>
                                 <option value="male">Laki-laki</option>
                                 <option value="female">Perempuan</option>
                             </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="domicile" class="form-label">Domisili</label>
+                            <input type="text" class="form-control" id="domicile" name="domicile">
                             <div class="invalid-feedback"></div>
                         </div>
                     </div>
@@ -81,9 +94,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="domicile" class="form-label">Domisili</label>
-                        <input type="text" class="form-control" id="domicile" name="domicile">
-                        <div class="invalid-feedback"></div>
+
                     </div>
                 </div>
                 <div class="modal-footer">
