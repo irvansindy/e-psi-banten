@@ -21,7 +21,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('psychology-tests/{id}/pdf', [PsychologyTestController::class, 'generatePDF'])->name('psychology-tests.pdf');
     Route::put('psychology-tests/{id}', [PsychologyTestController::class, 'update'])->name('psychology-tests.update');
     Route::delete('psychology-tests/{id}', [PsychologyTestController::class, 'destroy'])->name('psychology-tests.destroy');
-});
+    });
+    Route::get('psychology-tests/{id}/pdf', [PsychologyTestController::class, 'generatePDF'])->name('psychology-tests.pdf');
 
 // Logout route (optional, jika belum ada)
 Route::post('/logout', function() {
