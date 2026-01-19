@@ -520,11 +520,11 @@ class PsychologyTestController extends Controller
             $logoPath = public_path('assets/logo/caina-logo.png');
             if (file_exists($logoPath)) {
                 // X, Y, Width
-                $pdf->Image($logoPath, 20, 208, 14, 14, 'PNG');
+                $pdf->Image($logoPath, 5, 211, 14, 14, 'PNG');
             }
 
             // Posisi teks setelah logo
-            $textX = 36; // 20 + 14 + jarak
+            $textX = 20; // 20 + 14 + jarak
             $startY = 210;
 
             // EPPSI
@@ -543,11 +543,11 @@ class PsychologyTestController extends Controller
 
             // Catatan
             $pdf->SetFont('helvetica', 'B', 9);
-            $pdf->SetXY(20, $startY + 18);
+            $pdf->SetXY(5, $startY + 18);
             $pdf->Cell(80, 5, 'Catatan:', 0, 1, 'L');
 
             $pdf->SetFont('helvetica', '', 9);
-            $pdf->SetXY(20, $startY + 23);
+            $pdf->SetXY(5, $startY + 23);
             $pdf->MultiCell(
                 80,
                 5,
