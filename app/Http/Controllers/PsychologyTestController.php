@@ -393,15 +393,10 @@ class PsychologyTestController extends Controller
             $pdf->SetXY(40, 75);
             $pdf->Cell(70, 5, 'Sertifikat ini diberikan kepada:', 0, 0, 'L');
 
-            // Nomor Sertifikat
-            $pdf->SetFont('helvetica', 'B', 10);
-            $pdf->SetXY(100, 84);
-            $pdf->Cell(0, 0, $certificateNumber, 0, 0, 'L');
-
             // Foto peserta
             if ($data->photo && Storage::disk('public')->exists($data->photo)) {
                 $photoPath = Storage::disk('public')->path($data->photo);
-                $pdf->Image($photoPath, 35, 112, 32, 32, '', '', '', true, 300);
+                $pdf->Image($photoPath, 35, 85, 32, 32, '', '', '', true, 300);
             }
 
             // Data peserta
@@ -409,7 +404,7 @@ class PsychologyTestController extends Controller
 
             $labelX = 82;
             $valueX = 145;
-            $y = 112;
+            $y = 82;
 
             // Nama Lengkap
             $pdf->SetXY($labelX, $y);
@@ -472,32 +467,115 @@ class PsychologyTestController extends Controller
             $domicile = $data->domicile ? strtoupper($data->domicile) : '-';
             $pdf->Cell(0, 0, ': ' . $domicile, 0, 0, 'L');
 
+            // ================== KETERANGAN KELULUSAN ==================
+            $y += 14;
+
+            $textBold   = 'MEMENUHI SYARAT';
+            $textNormal = ' dalam mengajukan permohonan SIM.';
+
+            // Hitung lebar teks
+            $pdf->SetFont('helvetica', 'B', 11);
+            $boldWidth = $pdf->GetStringWidth($textBold);
+
+            $pdf->SetFont('helvetica', '', 11);
+            $normalWidth = $pdf->GetStringWidth($textNormal);
+
+            $totalWidth = $boldWidth + $normalWidth;
+
+            // Posisi X agar tetap center
+            $startX = (210 - $totalWidth) / 2;
+
+            // Teks bold
+            $pdf->SetFont('helvetica', 'B', 11);
+            $pdf->SetXY($startX, $y);
+            $pdf->Cell($boldWidth, 6, $textBold, 0, 0, 'L');
+
+            // Teks normal
+            $pdf->SetFont('helvetica', '', 11);
+            $pdf->Cell($normalWidth, 6, $textNormal, 0, 1, 'L');
+
+            // Masa berlaku
+            $pdf->SetFont('helvetica', 'b', 10);
+
+            // contoh: berlaku 1 tahun dari sekarang
+            $validUntil = $data->created_at
+    ? \Carbon\Carbon::parse($data->created_at)->addMonths(6)->isoFormat('D MMMM YYYY')
+    : '-';
+
+
+            $pdf->SetXY(20, $y + 7);
+            $pdf->Cell(170, 6, 'Sertifikat ini berlaku sampai dengan ' . $validUntil, 0, 1, 'C');
+
+
             // QR Code tengah
             $qrImageData = base64_decode($qrCode);
             $qrTempPath = storage_path('app/temp_qr_' . $id . '.png');
             file_put_contents($qrTempPath, $qrImageData);
 
-            $pdf->Image($qrTempPath, 90, 203, 30, 30, 'PNG');
+            $pdf->Image($qrTempPath, 90, 170, 30, 30, 'PNG');
+
+            // ================== INFORMASI PLATFORM (KIRI + LOGO) ==================
+
+            // Logo
+            $logoPath = public_path('assets/logo/caina-logo.png');
+            if (file_exists($logoPath)) {
+                // X, Y, Width
+                $pdf->Image($logoPath, 20, 208, 14, 14, 'PNG');
+            }
+
+            // Posisi teks setelah logo
+            $textX = 36; // 20 + 14 + jarak
+            $startY = 210;
+
+            // EPPSI
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY($textX, $startY);
+            $pdf->Cell(80, 5, 'EPPSI', 0, 1, 'L');
+
+            // Platform
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY($textX, $startY + 5);
+            $pdf->Cell(80, 5, 'Platform Tes Psikologi SIM', 0, 1, 'L');
+
+            // Company
+            $pdf->SetXY($textX, $startY + 10);
+            $pdf->Cell(80, 5, 'dibuat oleh PT. Central Asesmen Indonesia', 0, 1, 'L');
+
+            // Catatan
+            $pdf->SetFont('helvetica', 'B', 9);
+            $pdf->SetXY(20, $startY + 18);
+            $pdf->Cell(80, 5, 'Catatan:', 0, 1, 'L');
+
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY(20, $startY + 23);
+            $pdf->MultiCell(
+                80,
+                5,
+                "Sertifikat ini bisa digunakan untuk pembuatan SIM A dan SIM C",
+                0,
+                'L'
+            );
+
 
             // Tanggal
             $pdf->SetFont('helvetica', '', 9);
-            $pdf->SetXY(130, 245);
+            $pdf->SetXY(106, 200);
             $printDate = \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY');
             $pdf->Cell(65, 0, $printDate, 0, 0, 'R');
 
             // QR Code TTD
-            $pdf->Image($qrTempPath, 155, 250, 25, 25, 'PNG');
+            $pdf->Image($qrTempPath, 138, 205, 25, 25, 'PNG');
 
             @unlink($qrTempPath);
 
             // Nama Psikolog
             $pdf->SetFont('helvetica', 'B', 9);
-            $pdf->SetXY(130, 277);
+            $pdf->SetXY(110, 232);
             $pdf->Cell(65, 0, '( Pamila Maysari M.Psi, Psikolog )', 0, 0, 'R');
 
             $pdf->SetFont('helvetica', '', 9);
-            $pdf->SetXY(130, 282);
-            $pdf->Cell(65, 0, 'Psikolog', 0, 0, 'R');
+            $pdf->SetXY(100, 237);
+            $pdf->Cell(55, 0, 'Psikolog', 0, 0, 'R');
 
             // Load semua page
             for ($i = 2; $i <= $pageCount; $i++) {
