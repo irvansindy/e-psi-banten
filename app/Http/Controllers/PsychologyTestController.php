@@ -173,44 +173,11 @@ class PsychologyTestController extends Controller
             return FormatResponseJson::error(null, 'Data tidak ditemukan atau gagal dihapus', 500);
         }
     }
-    /**
-     * Generate PDF Certificate
-     */
+
     public function generatePDFOld($id)
     {
         try {
             $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
-            // dd($data);
-
-            // Generate certificate number
-            $certificateNumber = date('Y') . str_pad($data->id, 10, '0', STR_PAD_LEFT);
-            // dd($data->id .''. $certificateNumber);
-            // Format tanggal lahir
-            $birthDate = $data->date_of_birth ? \Carbon\Carbon::parse($data->date_of_birth)->isoFormat('D MMMM YYYY') : '-';
-            $birthPlace = $data->place_of_birth ?: '-';
-
-            // Generate QR Code URL (bisa diganti dengan URL verifikasi real)
-            $qrCodeUrl = url('/verify/' . $certificateNumber);
-
-            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
-                'data' => $data,
-                'certificateNumber' => $certificateNumber,
-                'birthDate' => $birthDate,
-                'birthPlace' => $birthPlace,
-                'qrCodeUrl' => $qrCodeUrl,
-                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
-            ]);
-
-            $pdf->setPaper('A4', 'portrait');
-            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal generate PDF: ' . $e->getMessage());
-        }
-    }
-    public function generatePDFOld2($id)
-    {
-        try {
-            $data = PsychologyTest::with(['sim', 'groupSim'])->findOrFail($id);
 
             // Generate certificate number
             $certificateNumber = date('Y') . str_pad($data->id, 10, '0', STR_PAD_LEFT);
@@ -219,30 +186,146 @@ class PsychologyTestController extends Controller
             $birthDate = $data->date_of_birth ? \Carbon\Carbon::parse($data->date_of_birth)->isoFormat('D MMMM YYYY') : '-';
             $birthPlace = $data->place_of_birth ?: '-';
 
-            // Generate QR Code URL (bisa diganti dengan URL verifikasi real)
-            $qrCodeUrl = url('/verify/' . $certificateNumber);
-            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
-                'data' => $data,
-                'certificateNumber' => $certificateNumber,
-                'birthDate' => $birthDate,
-                'birthPlace' => $birthPlace,
-                'qrCodeUrl' => $qrCodeUrl,
-                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
-            ]);
+            // Generate QR Code URL
+            $qrCodeUrl = route('psychology-tests.pdf', $id);
 
-            $pdf->setPaper('A4', 'portrait');
+            // Generate QR Code menggunakan API external
+            $qrCodeApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($qrCodeUrl);
+            $qrCodeImage = @file_get_contents($qrCodeApiUrl);
 
-            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
+            if ($qrCodeImage === false) {
+                throw new \Exception('Gagal generate QR Code');
+            }
+
+            $qrCode = base64_encode($qrCodeImage);
+
+            // Load template PDF - path yang benar
+            $templatePath = public_path('assets/template/template_e-psi.pdf');
+
+            // Cek apakah template ada
+            if (!file_exists($templatePath)) {
+                throw new \Exception('Template PDF tidak ditemukan di: ' . $templatePath);
+            }
+
+            // Menggunakan FPDI untuk edit PDF
+            $pdf = new \setasign\Fpdi\Tcpdf\Fpdi();
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetMargins(0, 0, 0);
+            $pdf->SetAutoPageBreak(false, 0);
+
+            // Import page 1 dari template
+            $pageCount = $pdf->setSourceFile($templatePath);
+            $templateId = $pdf->importPage(1);
+            $pdf->AddPage('P', 'A4');
+            $pdf->useTemplate($templateId, 0, 0, 210, 297, true);
+
+            // Foto peserta
+            if ($data->photo && Storage::disk('public')->exists($data->photo)) {
+                $photoPath = Storage::disk('public')->path($data->photo);
+                $pdf->Image($photoPath, 50, 85, 32, 32, '', '', '', true, 300, '', false, false, 0);
+            }
+
+            // Set font untuk data
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetTextColor(0, 0, 0);
+
+            // Nomor Sertifikat (di header)
+            $pdf->SetFont('helvetica', 'B', 18);
+            $pdf->SetXY(80, 45);
+            $pdf->Cell(70, 5, 'SERTIFIKAT', 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->SetXY(70, 55);
+            $pdf->Cell(70, 5, 'HASIL TES PSIKOLOGI SIM', 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY(70, 65);
+            $pdf->Cell(70, 5, 'NO SERTIFIKAT : '.$certificateNumber, 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY(40, 75);
+            $pdf->Cell(70, 5, 'Sertifikat ini diberikan kepada:', 0, 0, 'L');
+
+            // Reset font untuk data
+            $pdf->SetFont('helvetica', '', 10);
+
+            // Nama Lengkap
+            $pdf->SetXY(115, 84);
+            $pdf->Cell(80, 5, strtoupper($data->name), 0, 0, 'L');
+
+            // NIK
+            $pdf->SetXY(115, 92);
+            $pdf->Cell(80, 5, $data->nik, 0, 0, 'L');
+
+            // Jenis Kelamin
+            $pdf->SetXY(115, 100);
+            $genderText = $data->gender == 'male' ? 'LAKI-LAKI' : 'PEREMPUAN';
+            $pdf->Cell(80, 5, $genderText, 0, 0, 'L');
+
+            // Tempat, Tanggal Lahir
+            $pdf->SetXY(115, 108);
+            $birthInfo = strtoupper($birthPlace) . ', ' . $birthDate;
+            $pdf->Cell(80, 5, $birthInfo, 0, 0, 'L');
+
+            // Usia
+            $pdf->SetXY(115, 116);
+            $ageText = ($data->age ?: '-') . ' TAHUN';
+            $pdf->Cell(80, 5, $ageText, 0, 0, 'L');
+
+            // Jenis SIM
+            $pdf->SetXY(115, 124);
+            $simType = $data->sim ? strtoupper($data->sim->name) : 'PERPANJANGAN';
+            $pdf->Cell(80, 5, $simType, 0, 0, 'L');
+
+            // Golongan SIM
+            $pdf->SetXY(115, 132);
+            $simGroup = $data->groupSim ? strtoupper($data->groupSim->name) : 'C';
+            $pdf->Cell(80, 5, $simGroup, 0, 0, 'L');
+
+            // Domisili
+            $pdf->SetXY(115, 140);
+            $domicile = $data->domicile ? strtoupper($data->domicile) : '-';
+            $pdf->Cell(80, 5, $domicile, 0, 0, 'L');
+
+            // QR Code di tengah bawah
+            $qrImageData = base64_decode($qrCode);
+            $qrTempPath = storage_path('app/temp_qr_' . $id . '.png');
+            file_put_contents($qrTempPath, $qrImageData);
+
+            $pdf->Image($qrTempPath, 82, 160, 28, 28, 'PNG');
+
+            @unlink($qrTempPath);
+
+            // Tanggal cetak (kanan bawah)
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY(120, 215);
+            $printDate = \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY');
+            $pdf->Cell(70, 5, $printDate, 0, 0, 'R');
+
+            // Nama Psikolog
+            $pdf->SetFont('helvetica', 'B', 9);
+            $pdf->SetXY(120, 253);
+            $pdf->Cell(70, 5, '( Pamila Maysari M.Psi, Psikolog )', 0, 0, 'R');
+
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY(120, 258);
+            $pdf->Cell(70, 5, 'Psikolog', 0, 0, 'R');
+
+            // Output PDF
+            $filename = 'Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf';
+            return $pdf->Output($filename, 'I');
+
         } catch (\Exception $e) {
-            // Return error sebagai response JSON atau text untuk debugging
             return response()->json([
                 'error' => true,
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
-                'file' => $e->getFile()
+                'file' => $e->getFile(),
             ], 500);
         }
     }
+
     public function generatePDF($id)
     {
         try {
@@ -259,34 +342,184 @@ class PsychologyTestController extends Controller
             $qrCodeUrl = route('psychology-tests.pdf', $id);
 
             // Generate QR Code menggunakan API external
-            $qrCodeApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' . urlencode($qrCodeUrl);
+            $qrCodeApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($qrCodeUrl);
+            $qrCodeImage = @file_get_contents($qrCodeApiUrl);
 
-            // Download QR Code dan convert ke base64
-            $qrCodeImage = file_get_contents($qrCodeApiUrl);
+            if ($qrCodeImage === false) {
+                throw new \Exception('Gagal generate QR Code');
+            }
+
             $qrCode = base64_encode($qrCodeImage);
 
-            $pdf = PDF::loadView('admin.psychology-tests.certificate', [
-                'data' => $data,
-                'certificateNumber' => $certificateNumber,
-                'birthDate' => $birthDate,
-                'birthPlace' => $birthPlace,
-                'qrCodeUrl' => $qrCodeUrl,
-                'qrCode' => $qrCode,
-                'printDate' => \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY'),
-            ]);
+            // Load template PDF
+            $templatePath = public_path('assets/template/template_e-psi.pdf');
 
-            $pdf->setPaper('A4', 'portrait');
+            if (!file_exists($templatePath)) {
+                throw new \Exception('Template PDF tidak ditemukan di: ' . $templatePath);
+            }
 
-            return $pdf->stream('Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf');
+            // Menggunakan FPDI untuk edit PDF
+            $pdf = new \setasign\Fpdi\Tcpdf\Fpdi();
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetMargins(0, 0, 0);
+            $pdf->SetAutoPageBreak(false, 0);
+
+            // Import dan proses semua halaman dari template
+            $pageCount = $pdf->setSourceFile($templatePath);
+
+            // ============== PAGE 1 ==============
+            $templateId = $pdf->importPage(1);
+            $pdf->AddPage('P', 'A4');
+            $pdf->useTemplate($templateId, 0, 0, 210, 297, true);
+
+            // Set font
+            $pdf->SetTextColor(0, 0, 0);
+
+            // Nomor Sertifikat (di header)
+            $pdf->SetFont('helvetica', 'B', 18);
+            $pdf->SetXY(80, 45);
+            $pdf->Cell(70, 5, 'SERTIFIKAT', 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->SetXY(70, 55);
+            $pdf->Cell(70, 5, 'HASIL TES PSIKOLOGI SIM', 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY(70, 65);
+            $pdf->Cell(70, 5, 'NO SERTIFIKAT : '.$certificateNumber, 0, 0, 'L');
+
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY(40, 75);
+            $pdf->Cell(70, 5, 'Sertifikat ini diberikan kepada:', 0, 0, 'L');
+
+            // Nomor Sertifikat
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetXY(100, 84);
+            $pdf->Cell(0, 0, $certificateNumber, 0, 0, 'L');
+
+            // Foto peserta
+            if ($data->photo && Storage::disk('public')->exists($data->photo)) {
+                $photoPath = Storage::disk('public')->path($data->photo);
+                $pdf->Image($photoPath, 35, 112, 32, 32, '', '', '', true, 300);
+            }
+
+            // Data peserta
+            $pdf->SetFont('helvetica', '', 9.5);
+
+            $labelX = 82;
+            $valueX = 145;
+            $y = 112;
+
+            // Nama Lengkap
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Nama Lengkap', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $pdf->Cell(0, 0, ': ' . strtoupper($data->name), 0, 0, 'L');
+
+            // NIK
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'NIK', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $pdf->Cell(0, 0, ': ' . $data->nik, 0, 0, 'L');
+
+            // Jenis kelamin
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Jenis kelamin', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $genderText = $data->gender == 'male' ? 'LAKI-LAKI' : 'PEREMPUAN';
+            $pdf->Cell(0, 0, ': ' . $genderText, 0, 0, 'L');
+
+            // Tempat, Tanggal Lahir
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Tempat, Tanggal Lahir', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $birthInfo = strtoupper($birthPlace) . ', ' . $birthDate;
+            $pdf->Cell(0, 0, ': ' . $birthInfo, 0, 0, 'L');
+
+            // Usia
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Usia', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $ageText = ($data->age ?: '-') . ' TAHUN';
+            $pdf->Cell(0, 0, ': ' . $ageText, 0, 0, 'L');
+
+            // Jenis SIM
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Jenis SIM', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $simType = $data->sim ? strtoupper($data->sim->name) : 'PERPANJANGAN';
+            $pdf->Cell(0, 0, ': ' . $simType, 0, 0, 'L');
+
+            // Golongan SIM
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Golongan SIM', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $simGroup = $data->groupSim ? strtoupper($data->groupSim->name) : 'C';
+            $pdf->Cell(0, 0, ': ' . $simGroup, 0, 0, 'L');
+
+            // Domisili
+            $y += 8;
+            $pdf->SetXY($labelX, $y);
+            $pdf->Cell(50, 0, 'Domisili', 0, 0, 'L');
+            $pdf->SetXY($valueX, $y);
+            $domicile = $data->domicile ? strtoupper($data->domicile) : '-';
+            $pdf->Cell(0, 0, ': ' . $domicile, 0, 0, 'L');
+
+            // QR Code tengah
+            $qrImageData = base64_decode($qrCode);
+            $qrTempPath = storage_path('app/temp_qr_' . $id . '.png');
+            file_put_contents($qrTempPath, $qrImageData);
+
+            $pdf->Image($qrTempPath, 90, 203, 30, 30, 'PNG');
+
+            // Tanggal
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY(130, 245);
+            $printDate = \Carbon\Carbon::now()->isoFormat('dddd, D MMMM YYYY');
+            $pdf->Cell(65, 0, $printDate, 0, 0, 'R');
+
+            // QR Code TTD
+            $pdf->Image($qrTempPath, 155, 250, 25, 25, 'PNG');
+
+            @unlink($qrTempPath);
+
+            // Nama Psikolog
+            $pdf->SetFont('helvetica', 'B', 9);
+            $pdf->SetXY(130, 277);
+            $pdf->Cell(65, 0, '( Pamila Maysari M.Psi, Psikolog )', 0, 0, 'R');
+
+            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetXY(130, 282);
+            $pdf->Cell(65, 0, 'Psikolog', 0, 0, 'R');
+
+            // Load semua page
+            for ($i = 2; $i <= $pageCount; $i++) {
+                $templateIdN = $pdf->importPage($i);
+                $pdf->AddPage('P', 'A4');
+                $pdf->useTemplate($templateIdN, 0, 0, 210, 297, true);
+            }
+
+            // Output PDF
+            $filename = 'Sertifikat-' . $data->name . '-' . $certificateNumber . '.pdf';
+            return $pdf->Output($filename, 'I');
+
         } catch (\Exception $e) {
             return response()->json([
                 'error' => true,
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
-                'file' => $e->getFile()
+                'file' => $e->getFile(),
             ], 500);
         }
     }
+
     private function handlePhotoUpload($file)
     {
         try {
